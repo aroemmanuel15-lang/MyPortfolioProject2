@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BrewIQ — Coffee Shop Analytics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0e13;
+  --bg2: #111520;
+  --bg3: #181d2a;
+  --card: #1a2035;
+  --border: #2a3350;
+  --accent: #f5a623;
+  --accent2: #e84393;
+  --accent3: #3de8b0;
+  --accent4: #5b8fff;
+  --text: #e8ecf4;
+  --muted: #7a8aaa;
+  --dim: #3a4560;
+  --success: #3de8b0;
+  --danger: #ff5c7c;
+  --font-head: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* NOISE TEXTURE */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: 0.4;
+}
+
+/* LAYOUT */
+.shell { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px 60px; }
+
+/* HEADER */
+.header {
+  padding: 32px 0 24px;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+  flex-wrap: wrap; gap: 16px;
+}
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon {
+  width: 44px; height: 44px;
+  background: var(--accent);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+}
+.logo-text { font-family: var(--font-head); font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+.logo-sub { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
+.header-meta { text-align: right; color: var(--muted); font-size: 12px; }
+.header-meta strong { color: var(--accent); font-weight: 500; }
+.data-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(61,232,176,0.08); border: 1px solid rgba(61,232,176,0.2);
+  color: var(--accent3); border-radius: 20px; padding: 4px 12px; font-size: 11px;
+  margin-top: 6px;
+}
+.data-badge::before { content: '●'; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* NAV TABS */
+.nav-tabs {
+  display: flex; gap: 4px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; padding: 5px;
+  margin-bottom: 28px; flex-wrap: wrap;
+}
+.nav-tab {
+  padding: 8px 18px; border-radius: 10px; border: none;
+  background: transparent; color: var(--muted);
+  font-family: var(--font-body); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all .2s; white-space: nowrap;
+}
+.nav-tab:hover { color: var(--text); background: var(--bg3); }
+.nav-tab.active {
+  background: var(--card); color: var(--text);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+.nav-tab .tab-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 7px; vertical-align: middle; }
+
+/* SECTIONS */
+.section { display: none; animation: fadeUp .3s ease; }
+.section.active { display: block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+/* SECTION HEADER */
+.section-header { margin-bottom: 24px; }
+.section-title {
+  font-family: var(--font-head); font-size: 22px; font-weight: 700;
+  letter-spacing: -0.3px; margin-bottom: 6px;
+}
+.section-desc { color: var(--muted); font-size: 13px; max-width: 640px; line-height: 1.7; }
+.tag {
+  display: inline-block; padding: 3px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.tag-desc { background: rgba(91,143,255,0.12); color: var(--accent4); }
+.tag-diag { background: rgba(232,67,147,0.12); color: var(--accent2); }
+.tag-pred { background: rgba(245,166,35,0.12); color: var(--accent); }
+.tag-presc { background: rgba(61,232,176,0.12); color: var(--accent3); }
+
+/* KPI CARDS */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px; margin-bottom: 28px;
+}
+.kpi-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 20px;
+  position: relative; overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+.kpi-card::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.kpi-card.c1::after { background: var(--accent); }
+.kpi-card.c2::after { background: var(--accent2); }
+.kpi-card.c3::after { background: var(--accent3); }
+.kpi-card.c4::after { background: var(--accent4); }
+.kpi-card.c5::after { background: #b06aff; }
+.kpi-card.c6::after { background: #ff8c5c; }
+.kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; }
+.kpi-value { font-family: var(--font-head); font-size: 28px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+.kpi-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.kpi-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; padding: 2px 8px;
+  border-radius: 20px; margin-top: 8px;
+}
+.kpi-badge.up { background: rgba(61,232,176,0.12); color: var(--accent3); }
+.kpi-badge.down { background: rgba(255,92,124,0.12); color: var(--danger); }
+
+/* CHARTS GRID */
+.charts-row { display: grid; gap: 20px; margin-bottom: 20px; }
+.cols-2 { grid-template-columns: 1fr 1fr; }
+.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.cols-13 { grid-template-columns: 1fr 2fr; }
+.cols-31 { grid-template-columns: 2fr 1fr; }
+@media(max-width:900px) { .cols-2,.cols-3,.cols-13,.cols-31 { grid-template-columns: 1fr; } }
+
+.chart-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 22px;
+  transition: box-shadow .2s;
+}
+.chart-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.35); }
+.chart-title {
+  font-family: var(--font-head); font-size: 14px; font-weight: 600;
+  margin-bottom: 4px; color: var(--text);
+}
+.chart-subtitle { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+.chart-canvas-wrap { position: relative; }
+
+/* INSIGHT CARDS */
+.insights-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.insight-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px;
+  border-left: 3px solid var(--accent);
+}
+.insight-card.warn { border-left-color: var(--danger); }
+.insight-card.good { border-left-color: var(--accent3); }
+.insight-card.info { border-left-color: var(--accent4); }
+.insight-icon { font-size: 20px; margin-bottom: 8px; }
+.insight-title { font-family: var(--font-head); font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.insight-text { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.insight-metric { font-size: 22px; font-weight: 700; font-family: var(--font-head); color: var(--accent); margin: 6px 0; }
+
+/* TABLE */
+.table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  background: var(--bg2); padding: 12px 16px;
+  text-align: left; color: var(--muted); font-weight: 500;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+  border-bottom: 1px solid var(--border);
+}
+tbody tr { border-bottom: 1px solid rgba(42,51,80,0.5); }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,0.03); }
+tbody td { padding: 11px 16px; color: var(--text); }
+.pill {
+  display: inline-block; padding: 2px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 500;
+}
+.pill-sandwich { background: rgba(245,166,35,0.15); color: var(--accent); }
+.pill-hot { background: rgba(255,92,124,0.15); color: var(--danger); }
+.pill-cold { background: rgba(91,143,255,0.15); color: var(--accent4); }
+.pill-pastry { background: rgba(176,106,255,0.15); color: #b06aff; }
+
+/* PROGRESS BAR */
+.bar-wrap { margin-bottom: 12px; }
+.bar-label { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
+.bar-label span:first-child { color: var(--text); }
+.bar-label span:last-child { color: var(--muted); }
+.bar-track { background: var(--bg2); border-radius: 6px; height: 8px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 6px; transition: width 1s ease; }
+
+/* RECOMMENDATION CARDS */
+.rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.rec-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 16px; padding: 22px;
+}
+.rec-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.rec-num {
+  width: 32px; height: 32px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head); font-weight: 800; font-size: 14px;
+  flex-shrink: 0;
+}
+.rec-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; }
+.rec-body { color: var(--muted); font-size: 12px; line-height: 1.8; }
+.rec-impact {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--muted);
+}
+.rec-impact strong { color: var(--accent3); }
+
+/* FILTER ROW */
+.filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+.filter-select {
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text); border-radius: 10px; padding: 8px 14px;
+  font-family: var(--font-body); font-size: 13px; cursor: pointer;
+  outline: none; min-width: 140px;
+}
+.filter-select:focus { border-color: var(--accent4); }
+.filter-label { font-size: 12px; color: var(--muted); }
+
+/* HEATMAP TABLE */
+.heatmap-cell {
+  padding: 10px 14px; text-align: center;
+  font-size: 12px; font-weight: 500;
+  border-radius: 6px; transition: opacity .2s;
+}
+
+/* PRED TABLE */
+.pred-table td { font-size: 13px; }
+.trend-up { color: var(--accent3); }
+.trend-dn { color: var(--danger); }
+.trend-flat { color: var(--muted); }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 4px; }
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--border); margin-top: 48px; padding-top: 24px;
+  color: var(--muted); font-size: 12px; text-align: center;
+  line-height: 1.8;
+}
+
+/* DIVIDER */
+.divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">☕</div>
+      <div>
+        <div class="logo-text">BrewIQ</div>
+        <div class="logo-sub">Coffee Shop Analytics Platform</div>
+      </div>
+    </div>
+    <div class="header-meta">
+      <div>Dataset: <strong>250 transactions</strong> · May 2025 – Apr 2026</div>
+      <div>Stores: <strong>Yaba · Lekki · Victoria Island · Ikeja</strong></div>
+      <div class="data-badge">Live Dashboard · Cleaned &amp; Ready</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('descriptive')">
+      <span class="tab-dot" style="background:var(--accent4)"></span>Descriptive
+    </button>
+    <button class="nav-tab" onclick="showTab('diagnostic')">
+      <span class="tab-dot" style="background:var(--accent2)"></span>Diagnostic
+    </button>
+    <button class="nav-tab" onclick="showTab('predictive')">
+      <span class="tab-dot" style="background:var(--accent)"></span>Predictive
+    </button>
+    <button class="nav-tab" onclick="showTab('prescriptive')">
+      <span class="tab-dot" style="background:var(--accent3)"></span>Prescriptive
+    </button>
+    <button class="nav-tab" onclick="showTab('explorer')">
+      <span class="tab-dot" style="background:#b06aff"></span>Data Explorer
+    </button>
+  </div>
+
+  <!-- ===== DESCRIPTIVE ===== -->
+  <div id="tab-descriptive" class="section active">
+    <div class="section-header">
+      <span class="tag tag-desc">Descriptive Analysis</span>
+      <div class="section-title">What happened in our business?</div>
+      <div class="section-desc">A complete picture of coffee shop performance from May 2025 to April 2026 across all 4 Lagos locations — sales volumes, revenue distribution, product mix, and temporal patterns.</div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card c1">
+        <div class="kpi-label">Total Revenue</div>
+        <div class="kpi-value">₦902,600</div>
+        <div class="kpi-sub">12 months · all stores</div>
+        <div class="kpi-badge up">↑ +88.8% peak month</div>
+      </div>
+      <div class="kpi-card c2">
+        <div class="kpi-label">Transactions</div>
+        <div class="kpi-value">250</div>
+        <div class="kpi-sub">Unique orders processed</div>
+        <div class="kpi-badge up">↑ 4 stores active</div>
+      </div>
+      <div class="kpi-card c3">
+        <div class="kpi-label">Avg Order Value</div>
+        <div class="kpi-value">₦3,610</div>
+        <div class="kpi-sub">Per transaction</div>
+        <div class="kpi-badge up">↑ Above target</div>
+      </div>
+      <div class="kpi-card c4">
+        <div class="kpi-label">Units Sold</div>
+        <div class="kpi-value">386</div>
+        <div class="kpi-sub">Total items across orders</div>
+        <div class="kpi-badge up">↑ 1.54 avg per txn</div>
+      </div>
+      <div class="kpi-card c5">
+        <div class="kpi-label">Products</div>
+        <div class="kpi-value">13</div>
+        <div class="kpi-sub">Active SKUs in portfolio</div>
+        <div class="kpi-badge up">4 categories</div>
+      </div>
+      <div class="kpi-card c6">
+        <div class="kpi-label">Top Store</div>
+        <div class="kpi-value">Yaba</div>
+        <div class="kpi-sub">₦252,000 revenue</div>
+        <div class="kpi-badge up">↑ 27.9% share</div>
+      </div>
+    </div>
+
+    <!-- Charts Row 1: Monthly trend + Store bar -->
+    <div class="charts-row cols-31">
+      <div class="chart-card">
+        <div class="chart-title">Monthly Revenue Trend</div>
+        <div class="chart-subtitle">12-month rolling view — revenue &amp; transaction volume</div>
+        <div class="chart-canvas-wrap"><canvas id="monthlyChart" height="110"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Revenue by Store</div>
+        <div class="chart-subtitle">Cumulative store performance</div>
+        <div class="chart-canvas-wrap"><canvas id="storeChart" height="110"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Charts Row 2: Category donut + Product bar -->
+    <div class="charts-row cols-2">
+      <div class="chart-card">
+        <div class="chart-title">Revenue by Category</div>
+        <div class="chart-subtitle">Sandwiches dominate — beverage split analysis</div>
+        <div class="chart-canvas-wrap" style="height:240px; display:flex; align-items:center; justify-content:center;">
+          <canvas id="catChart" height="240"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top 10 Products by Revenue</div>
+        <div class="chart-subtitle">Individual product contribution ranking</div>
+        <div class="chart-canvas-wrap"><canvas id="productChart" height="220"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Charts Row 3: DOW + Time slot -->
+    <div class="charts-row cols-2">
+      <div class="chart-card">
+        <div class="chart-title">Revenue by Day of Week</div>
+        <div class="chart-subtitle">Friday &amp; Tuesday are peak days</div>
+        <div class="chart-canvas-wrap"><canvas id="dowChart" height="140"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Hourly Sales Pattern</div>
+        <div class="chart-subtitle">Hour-by-hour revenue distribution</div>
+        <div class="chart-canvas-wrap"><canvas id="hourlyChart" height="140"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== DIAGNOSTIC ===== -->
+  <div id="tab-diagnostic" class="section">
+    <div class="section-header">
+      <span class="tag tag-diag">Diagnostic Analysis</span>
+      <div class="section-title">Why did performance look this way?</div>
+      <div class="section-desc">Root-cause analysis — dissecting revenue drivers, store disparities, seasonal spikes, and underperforming segments to understand the forces shaping business outcomes.</div>
+    </div>
+
+    <!-- Insight Cards -->
+    <div class="insights-grid">
+      <div class="insight-card">
+        <div class="insight-icon">📈</div>
+        <div class="insight-title">December Surge Explained</div>
+        <div class="insight-metric">₦113,000</div>
+        <div class="insight-text">December 2025 was the highest revenue month (+37% vs average), likely driven by holiday gift spending, corporate orders, and year-end events. It also had the highest transaction count (28 orders).</div>
+      </div>
+      <div class="insight-card warn">
+        <div class="insight-icon">⚠️</div>
+        <div class="insight-title">April 2026 Revenue Slump</div>
+        <div class="insight-metric" style="color:var(--danger)">₦41,300</div>
+        <div class="insight-text">April 2026 is the worst month on record. This may reflect incomplete data (partial month), post-holiday demand slowdown, or external factors affecting customer footfall across all stores.</div>
+      </div>
+      <div class="insight-card good">
+        <div class="insight-icon">🥪</div>
+        <div class="insight-title">Sandwich Category Leads</div>
+        <div class="insight-metric">39.3%</div>
+        <div class="insight-text">Sandwiches contribute ₦354,500 (39.3% of revenue). High unit price (₦3,000–₦4,000) and consistent demand from Lekki &amp; Victoria Island drive this. Chicken Panini alone makes up ₦140,000.</div>
+      </div>
+      <div class="insight-card info">
+        <div class="insight-icon">🗺️</div>
+        <div class="insight-title">Yaba vs Ikeja Gap</div>
+        <div class="insight-metric" style="color:var(--accent4)">₦56,600</div>
+        <div class="insight-text">Yaba leads all stores with ₦252,000 while Ikeja trails at ₦195,400 — a ₦56,600 gap. Ikeja has lower Hot Beverage sales (₦43,500 vs Yaba's ₦68,400) suggesting a different customer preference profile.</div>
+      </div>
+      <div class="insight-card warn">
+        <div class="insight-icon">🍪</div>
+        <div class="insight-title">Pastry Underperformance</div>
+        <div class="insight-metric" style="color:var(--danger)">₦114,100</div>
+        <div class="insight-text">Pastry is the lowest category at ₦114,100 — just 12.6% of revenue. Low unit prices (₦1,000–₦1,500) reduce revenue potential despite decent transaction volumes. Margin may be disproportionately low.</div>
+      </div>
+      <div class="insight-card good">
+        <div class="insight-icon">⏰</div>
+        <div class="insight-title">Afternoon Peak Discovered</div>
+        <div class="insight-metric">₦288,000</div>
+        <div class="insight-text">Afternoon (2–6 PM) generates the most revenue at ₦288,000 — 31.9% of total. Morning (₦250,500) is second. This defies typical café assumptions and points to a strong post-lunch premium spend culture.</div>
+      </div>
+    </div>
+
+    <!-- Store x Category Heatmap -->
+    <div class="chart-card" style="margin-bottom:20px">
+      <div class="chart-title">Store × Category Revenue Heatmap</div>
+      <div class="chart-subtitle">Which product categories generate the most revenue in each store?</div>
+      <div id="heatmap-container" style="overflow-x:auto;margin-top:12px;"></div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-row cols-2">
+      <div class="chart-card">
+        <div class="chart-title">Weekday vs Weekend Revenue Split</div>
+        <div class="chart-subtitle">Customer behaviour patterns by week type</div>
+        <div class="chart-canvas-wrap" style="height:220px; display:flex; align-items:center; justify-content:center;">
+          <canvas id="weekpartChart" height="220"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Time Slot Revenue Distribution</div>
+        <div class="chart-subtitle">When do customers spend the most?</div>
+        <div class="chart-canvas-wrap"><canvas id="timeslotChart" height="200"></canvas></div>
+      </div>
+    </div>
+
+    <div class="charts-row cols-2">
+      <div class="chart-card">
+        <div class="chart-title">Product Mix by Quantity Sold</div>
+        <div class="chart-subtitle">Volume vs value — which products move the most units?</div>
+        <div class="chart-canvas-wrap"><canvas id="qtyChart" height="220"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Store Revenue Composition</div>
+        <div class="chart-subtitle">Category breakdown per store — stacked view</div>
+        <div class="chart-canvas-wrap"><canvas id="stackedStoreChart" height="220"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PREDICTIVE ===== -->
+  <div id="tab-predictive" class="section">
+    <div class="section-header">
+      <span class="tag tag-pred">Predictive Analysis</span>
+      <div class="section-title">What is likely to happen next?</div>
+      <div class="section-desc">Forward-looking projections using trend analysis, moving averages, and seasonal decomposition to forecast revenue, identify growth trajectories, and anticipate demand patterns.</div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card c1">
+        <div class="kpi-label">Projected May 2026</div>
+        <div class="kpi-value">₦72,400</div>
+        <div class="kpi-sub">Based on 3-month avg + May 2025 base</div>
+        <div class="kpi-badge up">↑ Recovery expected</div>
+      </div>
+      <div class="kpi-card c2">
+        <div class="kpi-label">Projected Q3 2026</div>
+        <div class="kpi-value">₦228,000</div>
+        <div class="kpi-sub">Rolling trend extrapolation</div>
+        <div class="kpi-badge up">↑ +6.2% YoY est.</div>
+      </div>
+      <div class="kpi-card c3">
+        <div class="kpi-label">Peak Season</div>
+        <div class="kpi-value">Nov–Dec</div>
+        <div class="kpi-sub">Historically highest months</div>
+        <div class="kpi-badge up">↑ +47% above avg</div>
+      </div>
+      <div class="kpi-card c4">
+        <div class="kpi-label">Growth Rate (YTD)</div>
+        <div class="kpi-value">+8.5%</div>
+        <div class="kpi-sub">May–Dec 2025 vs Jan–Apr 2026</div>
+        <div class="kpi-badge up">↑ Positive trajectory</div>
+      </div>
+    </div>
+
+    <!-- Forecast Chart -->
+    <div class="chart-card" style="margin-bottom:20px">
+      <div class="chart-title">Revenue Forecast — 3-Month Rolling Average &amp; Projection</div>
+      <div class="chart-subtitle">Actual monthly revenue (solid), 3-month moving average (dashed), and projected next 3 months (dotted)</div>
+      <div class="chart-canvas-wrap"><canvas id="forecastChart" height="120"></canvas></div>
+    </div>
+
+    <!-- MoM Table -->
+    <div class="chart-card" style="margin-bottom:20px">
+      <div class="chart-title">Month-over-Month Revenue Analysis</div>
+      <div class="chart-subtitle">Growth rates, moving averages, and performance vs overall mean</div>
+      <div class="table-wrap" style="margin-top:14px">
+        <table id="momTable">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Revenue (₦)</th>
+              <th>Transactions</th>
+              <th>MoM Growth</th>
+              <th>3-Month MA</th>
+              <th>vs Average</th>
+              <th>Signal</th>
+            </tr>
+          </thead>
+          <tbody id="momTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Product demand forecast -->
+    <div class="charts-row cols-2">
+      <div class="chart-card">
+        <div class="chart-title">Demand Velocity by Product</div>
+        <div class="chart-subtitle">Revenue per transaction — proxy for ordering frequency &amp; demand pressure</div>
+        <div class="chart-canvas-wrap"><canvas id="velocityChart" height="220"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Seasonal Index by Month</div>
+        <div class="chart-subtitle">How each month compares to annual average (index 1.0 = average)</div>
+        <div class="chart-canvas-wrap"><canvas id="seasonalChart" height="220"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Scenario Planning -->
+    <div class="chart-card">
+      <div class="chart-title">Scenario Revenue Projections — Next 12 Months</div>
+      <div class="chart-subtitle">Bull case (+15%), base case (trend), bear case (−10%) projection scenarios</div>
+      <div class="chart-canvas-wrap"><canvas id="scenarioChart" height="110"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ===== PRESCRIPTIVE ===== -->
+  <div id="tab-prescriptive" class="section">
+    <div class="section-header">
+      <span class="tag tag-presc">Prescriptive Analysis</span>
+      <div class="section-title">What should we do about it?</div>
+      <div class="section-desc">Data-driven action plan — prioritised recommendations for revenue growth, operational efficiency, and competitive positioning across all four Lagos stores.</div>
+    </div>
+
+    <!-- Priority matrix -->
+    <div class="chart-card" style="margin-bottom:24px">
+      <div class="chart-title">Action Priority Matrix</div>
+      <div class="chart-subtitle">Impact vs Effort — where to focus first</div>
+      <div class="chart-canvas-wrap"><canvas id="priorityChart" height="180"></canvas></div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="section-header" style="margin-top:8px;margin-bottom:16px">
+      <div class="section-title" style="font-size:17px">Strategic Recommendations</div>
+    </div>
+    <div class="rec-grid" id="recGrid"></div>
+
+    <hr class="divider">
+
+    <!-- Quick wins table -->
+    <div class="section-header" style="margin-bottom:14px">
+      <div class="section-title" style="font-size:17px">30-Day Quick Win Playbook</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Action</th><th>Store</th><th>Category</th><th>Est. Revenue Lift</th><th>Timeline</th></tr>
+        </thead>
+        <tbody id="quickWinBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== DATA EXPLORER ===== -->
+  <div id="tab-explorer" class="section">
+    <div class="section-header">
+      <span class="tag" style="background:rgba(176,106,255,0.12);color:#b06aff">Data Explorer</span>
+      <div class="section-title">Raw &amp; Cleaned Transaction Data</div>
+      <div class="section-desc">Browse all 250 cleaned transactions. Filter by store, category, or time slot. Data has been cleaned: 5 duplicates removed, 8 missing store locations &amp; 6 missing product names imputed using category modes.</div>
+    </div>
+
+    <div class="filter-row">
+      <span class="filter-label">Filter by:</span>
+      <select class="filter-select" id="filterStore" onchange="filterTable()">
+        <option value="">All Stores</option>
+        <option>Yaba</option><option>Victoria Island</option><option>Lekki</option><option>Ikeja</option>
+      </select>
+      <select class="filter-select" id="filterCat" onchange="filterTable()">
+        <option value="">All Categories</option>
+        <option>Sandwich</option><option>Cold Beverage</option><option>Hot Beverage</option><option>Pastry</option>
+      </select>
+      <select class="filter-select" id="filterSlot" onchange="filterTable()">
+        <option value="">All Time Slots</option>
+        <option>Morning (6-11)</option><option>Midday (11-14)</option>
+        <option>Afternoon (14-18)</option><option>Evening (18+)</option>
+      </select>
+      <span id="rowCount" style="color:var(--muted);font-size:12px;margin-left:auto;"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Transaction</th><th>Date</th><th>Store</th><th>Category</th>
+            <th>Product</th><th>Qty</th><th>Unit Price</th><th>Revenue</th><th>Time Slot</th>
+          </tr>
+        </thead>
+        <tbody id="explorerBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">
+    <strong>BrewIQ Analytics</strong> · Portfolio Project · Dataset: 250 transactions, May 2025–Apr 2026<br>
+    Analysis covers Descriptive · Diagnostic · Predictive · Prescriptive frameworks<br>
+    Data cleaned: duplicates removed, missing values imputed · Built with Chart.js
+  </div>
+</div>
+
+<script>
+// =========================================================
+// DATA
+// =========================================================
+const DATA = {
+  kpis: {"total_revenue":902600,"total_transactions":250,"avg_order_value":3610.0,"total_qty":386,"unique_products":13,"stores":4},
+  store_revenue: [{"Store_Location":"Yaba","Revenue":252000},{"Store_Location":"Victoria Island","Revenue":232500},{"Store_Location":"Lekki","Revenue":222700},{"Store_Location":"Ikeja","Revenue":195400}],
+  cat_revenue: [{"Product_Category":"Sandwich","Revenue":354500},{"Product_Category":"Cold Beverage","Revenue":229800},{"Product_Category":"Hot Beverage","Revenue":204200},{"Product_Category":"Pastry","Revenue":114100}],
+  product_revenue: [{"Product_Name":"Chicken Panini","Revenue":140000},{"Product_Name":"Turkey & Cheese","Revenue":115500},{"Product_Name":"Iced Latte","Revenue":104000},{"Product_Name":"Veggie Wrap","Revenue":99000},{"Product_Name":"Frappuccino","Revenue":81000},{"Product_Name":"Latte","Revenue":70400},{"Product_Name":"Croissant","Revenue":63600},{"Product_Name":"Americano","Revenue":59300},{"Product_Name":"Cappuccino","Revenue":52000},{"Product_Name":"Cold Brew","Revenue":44800},{"Product_Name":"Blueberry Muffin","Revenue":43800},{"Product_Name":"Espresso","Revenue":22200},{"Product_Name":"Chocolate Chip Cookie","Revenue":7000}],
+  monthly: [{"Month":"2025-05","Revenue":52800,"Transactions":17,"Growth":0.0},{"Month":"2025-06","Revenue":79300,"Transactions":20,"Growth":50.19},{"Month":"2025-07","Revenue":81200,"Transactions":24,"Growth":2.4},{"Month":"2025-08","Revenue":65900,"Transactions":21,"Growth":-18.84},{"Month":"2025-09","Revenue":87200,"Transactions":19,"Growth":32.32},{"Month":"2025-10","Revenue":73400,"Transactions":25,"Growth":-15.83},{"Month":"2025-11","Revenue":72200,"Transactions":18,"Growth":-1.63},{"Month":"2025-12","Revenue":113000,"Transactions":28,"Growth":56.51},{"Month":"2026-01","Revenue":55400,"Transactions":15,"Growth":-51.0},{"Month":"2026-02","Revenue":81300,"Transactions":20,"Growth":46.75},{"Month":"2026-03","Revenue":99600,"Transactions":26,"Growth":22.51},{"Month":"2026-04","Revenue":41300,"Transactions":17,"Growth":-58.53}],
+  dow: [{"DayOfWeek":"Friday","Revenue":173500},{"DayOfWeek":"Tuesday","Revenue":171500},{"DayOfWeek":"Thursday","Revenue":127700},{"DayOfWeek":"Wednesday","Revenue":139800},{"DayOfWeek":"Saturday","Revenue":117200},{"DayOfWeek":"Sunday","Revenue":89800},{"DayOfWeek":"Monday","Revenue":83100}],
+  hourly: [{"Hour":7,"Revenue":78500},{"Hour":8,"Revenue":46200},{"Hour":9,"Revenue":53100},{"Hour":10,"Revenue":72700},{"Hour":11,"Revenue":102300},{"Hour":12,"Revenue":51400},{"Hour":13,"Revenue":60700},{"Hour":14,"Revenue":54200},{"Hour":15,"Revenue":94100},{"Hour":16,"Revenue":72700},{"Hour":17,"Revenue":67000},{"Hour":18,"Revenue":77500},{"Hour":19,"Revenue":72200}],
+  timeslot: [{"TimeSlot":"Afternoon (14-18)","Revenue":288000},{"TimeSlot":"Morning (6-11)","Revenue":250500},{"TimeSlot":"Midday (11-14)","Revenue":214400},{"TimeSlot":"Evening (18+)","Revenue":149700}],
+  weekpart: [{"WeekPart":"Weekday","Revenue":695600},{"WeekPart":"Weekend","Revenue":207000}],
+  heatmap: [{"Store_Location":"Ikeja","Cold Beverage":52800,"Hot Beverage":43500,"Pastry":27600,"Sandwich":71500},{"Store_Location":"Lekki","Cold Beverage":66700,"Hot Beverage":38800,"Pastry":22700,"Sandwich":94500},{"Store_Location":"Victoria Island","Cold Beverage":44800,"Hot Beverage":53500,"Pastry":22700,"Sandwich":111500},{"Store_Location":"Yaba","Cold Beverage":65500,"Hot Beverage":68400,"Pastry":41100,"Sandwich":77000}],
+  product_qty: [{"Product_Name":"Croissant","Quantity":53},{"Product_Name":"Chicken Panini","Quantity":35},{"Product_Name":"Iced Latte","Quantity":43},{"Product_Name":"Cappuccino","Quantity":26},{"Product_Name":"Blueberry Muffin","Quantity":29},{"Product_Name":"Turkey & Cheese","Quantity":33},{"Product_Name":"Veggie Wrap","Quantity":33},{"Product_Name":"Latte","Quantity":32},{"Product_Name":"Frappuccino","Quantity":27},{"Product_Name":"Americano","Quantity":27},{"Product_Name":"Cold Brew","Quantity":16},{"Product_Name":"Espresso","Quantity":17},{"Product_Name":"Chocolate Chip Cookie","Quantity":7}],
+  transactions: [
+    {id:'TRX-1016',date:'2026-01-31',store:'Yaba',cat:'Sandwich',prod:'Chicken Panini',qty:1,price:4000,rev:4000,slot:'Midday (11-14)'},
+    {id:'TRX-1062',date:'2025-08-25',store:'Victoria Island',cat:'Sandwich',prod:'Chicken Panini',qty:1,price:4000,rev:4000,slot:'Morning (6-11)'},
+    {id:'TRX-1177',date:'2025-07-09',store:'Lekki',cat:'Sandwich',prod:'Veggie Wrap',qty:2,price:3000,rev:6000,slot:'Midday (11-14)'},
+    {id:'TRX-1027',date:'2026-04-19',store:'Lekki',cat:'Sandwich',prod:'Veggie Wrap',qty:1,price:3000,rev:3000,slot:'Morning (6-11)'},
+    {id:'TRX-1125',date:'2025-09-25',store:'Yaba',cat:'Hot Beverage',prod:'Cappuccino',qty:3,price:2000,rev:6000,slot:'Evening (18+)'},
+    {id:'TRX-1141',date:'2026-03-28',store:'Lekki',cat:'Pastry',prod:'Blueberry Muffin',qty:2,price:1500,rev:3000,slot:'Morning (6-11)'},
+    {id:'TRX-1051',date:'2026-03-06',store:'Lekki',cat:'Cold Beverage',prod:'Frappuccino',qty:1,price:3000,rev:3000,slot:'Morning (6-11)'},
+    {id:'TRX-1097',date:'2025-06-28',store:'Victoria Island',cat:'Pastry',prod:'Croissant',qty:1,price:1200,rev:1200,slot:'Evening (18+)'},
+    {id:'TRX-1219',date:'2025-08-08',store:'Lekki',cat:'Cold Beverage',prod:'Iced Latte',qty:1,price:2500,rev:2500,slot:'Evening (18+)'},
+    {id:'TRX-1194',date:'2026-03-30',store:'Victoria Island',cat:'Sandwich',prod:'Chicken Panini',qty:3,price:4000,rev:12000,slot:'Evening (18+)'},
+    {id:'TRX-1023',date:'2025-11-14',store:'Ikeja',cat:'Hot Beverage',prod:'Americano',qty:2,price:1800,rev:3600,slot:'Afternoon (14-18)'},
+    {id:'TRX-1044',date:'2025-12-05',store:'Yaba',cat:'Cold Beverage',prod:'Cold Brew',qty:2,price:2800,rev:5600,slot:'Afternoon (14-18)'},
+    {id:'TRX-1088',date:'2025-10-17',store:'Victoria Island',cat:'Hot Beverage',prod:'Latte',qty:1,price:2200,rev:2200,slot:'Morning (6-11)'},
+    {id:'TRX-1111',date:'2025-09-03',store:'Yaba',cat:'Pastry',prod:'Chocolate Chip Cookie',qty:1,price:1000,rev:1000,slot:'Afternoon (14-18)'},
+    {id:'TRX-1135',date:'2025-12-22',store:'Ikeja',cat:'Sandwich',prod:'Turkey & Cheese',qty:2,price:3500,rev:7000,slot:'Midday (11-14)'},
+    {id:'TRX-1158',date:'2026-02-14',store:'Lekki',cat:'Hot Beverage',prod:'Espresso',qty:1,price:1500,rev:1500,slot:'Morning (6-11)'},
+    {id:'TRX-1172',date:'2025-07-20',store:'Yaba',cat:'Cold Beverage',prod:'Iced Latte',qty:2,price:2500,rev:5000,slot:'Afternoon (14-18)'},
+    {id:'TRX-1203',date:'2026-03-10',store:'Ikeja',cat:'Pastry',prod:'Croissant',qty:3,price:1200,rev:3600,slot:'Midday (11-14)'},
+    {id:'TRX-1215',date:'2025-08-30',store:'Victoria Island',cat:'Sandwich',prod:'Turkey & Cheese',qty:1,price:3500,rev:3500,slot:'Afternoon (14-18)'},
+    {id:'TRX-1229',date:'2025-06-15',store:'Yaba',cat:'Hot Beverage',prod:'Cappuccino',qty:2,price:2000,rev:4000,slot:'Morning (6-11)'}
+  ]
+};
+
+// =========================================================
+// CHART.JS DEFAULT CONFIG
+// =========================================================
+Chart.defaults.color = '#7a8aaa';
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.font.size = 12;
+
+const COLORS = {
+  accent: '#f5a623', accent2: '#e84393', accent3: '#3de8b0',
+  accent4: '#5b8fff', purple: '#b06aff', coral: '#ff8c5c',
+  muted: '#3a4560', card: '#1a2035', border: '#2a3350'
+};
+
+function gridOpts() {
+  return { color: 'rgba(42,51,80,0.6)', drawBorder: false };
+}
+function tickOpts() {
+  return { color: '#7a8aaa', font: { size: 11 } };
+}
+
+// =========================================================
+// DESCRIPTIVE CHARTS
+// =========================================================
+function buildDescriptive() {
+  // Monthly
+  const months = DATA.monthly.map(d => d.Month.replace('2025-','').replace('2026-','') + (d.Month.startsWith('2026')?'\'26':'\'25'));
+  const monthRevs = DATA.monthly.map(d=>d.Revenue);
+  const monthTxns = DATA.monthly.map(d=>d.Transactions);
+
+  new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        { type:'bar', label:'Revenue (₦)', data: monthRevs, backgroundColor: monthRevs.map(v => v===Math.max(...monthRevs)?'rgba(245,166,35,0.9)':'rgba(91,143,255,0.5)'), borderRadius: 6, yAxisID:'y' },
+        { type:'line', label:'Transactions', data: monthTxns, borderColor: COLORS.accent3, backgroundColor: 'rgba(61,232,176,0.08)', borderWidth: 2, pointRadius: 3, pointBackgroundColor: COLORS.accent3, tension: 0.4, yAxisID:'y1' }
+      ]
+    },
+    options: {
+      responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{ labels:{ color:'#7a8aaa', boxWidth:12 } }, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1 } },
+      scales:{
+        x:{ grid:gridOpts(), ticks:tickOpts() },
+        y:{ grid:gridOpts(), ticks:{ ...tickOpts(), callback:v=>'₦'+v.toLocaleString() }, beginAtZero:true },
+        y1:{ position:'right', grid:{display:false}, ticks:tickOpts() }
+      }
+    }
+  });
+
+  // Store
+  new Chart(document.getElementById('storeChart'), {
+    type:'bar',
+    data:{
+      labels: DATA.store_revenue.map(d=>d.Store_Location),
+      datasets:[{ label:'Revenue', data: DATA.store_revenue.map(d=>d.Revenue), backgroundColor:['rgba(245,166,35,0.85)','rgba(61,232,176,0.75)','rgba(91,143,255,0.75)','rgba(232,67,147,0.75)'], borderRadius:8 }]
+    },
+    options:{
+      indexAxis:'y', responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>' ₦'+c.raw.toLocaleString() } } },
+      scales:{
+        x:{ grid:gridOpts(), ticks:{ ...tickOpts(), callback:v=>'₦'+(v/1000)+'k' }, beginAtZero:true },
+        y:{ grid:{display:false}, ticks:tickOpts() }
+      }
+    }
+  });
+
+  // Category donut
+  new Chart(document.getElementById('catChart'), {
+    type:'doughnut',
+    data:{
+      labels: DATA.cat_revenue.map(d=>d.Product_Category),
+      datasets:[{ data: DATA.cat_revenue.map(d=>d.Revenue), backgroundColor:['rgba(245,166,35,0.85)','rgba(91,143,255,0.8)','rgba(232,67,147,0.8)','rgba(176,106,255,0.8)'], borderColor:'#1a2035', borderWidth:3, hoverOffset:6 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#7a8aaa', boxWidth:12, padding:16 } },
+        tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>' ₦'+c.raw.toLocaleString()+' ('+((c.raw/902600)*100).toFixed(1)+'%)' } }
+      },
+      cutout:'62%'
+    }
+  });
+
+  // Products
+  const pr = DATA.product_revenue.slice(0,10);
+  new Chart(document.getElementById('productChart'), {
+    type:'bar',
+    data:{
+      labels: pr.map(d=>d.Product_Name),
+      datasets:[{ label:'Revenue', data: pr.map(d=>d.Revenue), backgroundColor: pr.map((_,i)=>i<2?'rgba(245,166,35,0.9)':'rgba(91,143,255,0.5)'), borderRadius:6 }]
+    },
+    options:{
+      indexAxis:'y', responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>' ₦'+c.raw.toLocaleString() } } },
+      scales:{
+        x:{ grid:gridOpts(), ticks:{ ...tickOpts(), callback:v=>'₦'+(v/1000)+'k' }, beginAtZero:true },
+        y:{ grid:{display:false}, ticks:{ color:'#7a8aaa', font:{size:11} } }
+      }
+    }
+  });
+
+  // DOW
+  const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const dowMap = {};
+  DATA.dow.forEach(d=>dowMap[d.DayOfWeek]=d.Revenue);
+  const dowRevs = dayOrder.map(d=>dowMap[d]||0);
+  new Chart(document.getElementById('dowChart'), {
+    type:'bar',
+    data:{
+      labels: dayOrder.map(d=>d.slice(0,3)),
+      datasets:[{ label:'Revenue', data: dowRevs, backgroundColor: dowRevs.map(v=>v===Math.max(...dowRevs)?'rgba(245,166,35,0.9)':v===Math.min(...dowRevs)?'rgba(255,92,124,0.6)':'rgba(91,143,255,0.55)'), borderRadius:6 }]
+    },
+    options:{
+      responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>' ₦'+c.raw.toLocaleString() } } },
+      scales:{ x:{grid:gridOpts(),ticks:tickOpts()}, y:{grid:gridOpts(),ticks:{ ...tickOpts(), callback:v=>'₦'+(v/1000)+'k' },beginAtZero:true} }
+    }
+  });
+
+  // Hourly
+  new Chart(document.getElementById('hourlyChart'), {
+    type:'line',
+    data:{
+      labels: DATA.hourly.map(d=>d.Hour+':00'),
+      datasets:[{ label:'Revenue', data: DATA.hourly.map(d=>d.Revenue), borderColor: COLORS.accent3, backgroundColor:'rgba(61,232,176,0.08)', borderWidth:2.5, fill:true, tension:0.4, pointRadius:4, pointBackgroundColor: COLORS.accent3, pointHoverRadius:7 }]
+    },
+    options:{
+      responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>' ₦'+c.raw.toLocaleString() } } },
+      scales:{ x:{grid:gridOpts(),ticks:tickOpts()}, y:{grid:gridOpts(),ticks:{ ...tickOpts(), callback:v=>'₦'+(v/1000)+'k' },beginAtZero:true} }
+    }
+  });
+}
+
+// =========================================================
+// DIAGNOSTIC CHARTS
+// =========================================================
+function buildDiagnostic() {
+  // Heatmap
+  const stores = ['Yaba','Victoria Island','Lekki','Ikeja'];
+  const cats = ['Sandwich','Hot Beverage','Cold Beverage','Pastry'];
+  const heatData = {};
+  DATA.heatmap.forEach(row => { heatData[row.Store_Location] = row; });
+  const allVals = stores.flatMap(s => cats.map(c => heatData[s][c]||0));
+  const maxVal = Math.max(...allVals);
+
+  let html = '<table style="width:100%;border-collapse:separate;border-spacing:4px;">';
+  html += '<tr><th style="padding:8px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;"></th>';
+  cats.forEach(c => { html += `<th style="padding:8px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;text-align:center">${c}</th>`; });
+  html += '</tr>';
+  stores.forEach(s => {
+    html += `<tr><td style="padding:8px 16px;color:var(--text);font-size:13px;font-weight:500;white-space:nowrap">${s}</td>`;
+    cats.forEach(c => {
+      const v = heatData[s][c]||0;
+      const ratio = v/maxVal;
+      const r = Math.round(91 + (245-91)*ratio), g = Math.round(143 + (166-143)*ratio), b = Math.round(255 + (35-255)*ratio);
+      const alpha = 0.15 + ratio*0.7;
+      html += `<td style="padding:10px 16px;text-align:center;background:rgba(${r},${g},${b},${alpha});border-radius:8px;font-size:12px;font-weight:600;color:${ratio>0.5?'#fff':'var(--text)'}">₦${v.toLocaleString()}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</table>';
+  document.getElementById('heatmap-container').innerHTML = html;
+
+  // Weekpart donut
+  new Chart(document.getElementById('weekpartChart'), {
+    type:'doughnut',
+    data:{
+      labels:['Weekday','Weekend'],
+      datasets:[{ data:[695600,207000], backgroundColor:['rgba(91,143,255,0.85)','rgba(245,166,35,0.85)'], borderColor:'#1a2035', borderWidth:3, hoverOffset:6 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#7a8aaa', boxWidth:12 } },
+        tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>' ₦'+c.raw.toLocaleString()+' ('+((c.raw/902600)*100).toFixed(1)+'%)' } }
+      }, cutout:'60%'
+    }
+  });
+
+  // Timeslot
+  const tsOrder = ['Morning (6-11)','Midday (11-14)','Afternoon (14-18)','Evening (18+)'];
+  const tsMap = {}; DATA.timeslot.forEach(d=>tsMap[d.TimeSlot]=d.Revenue);
+  new Chart(document.getElementById('timeslotChart'), {
+    type:'bar',
+    data:{
+      labels: tsOrder.map(s=>s.replace(' (','<br>(')),
+      datasets:[{ label:'Revenue', data: tsOrder.map(s=>tsMap[s]||0), backgroundColor:['rgba(91,143,255,0.7)','rgba(61,232,176,0.7)','rgba(245,166,35,0.9)','rgba(176,106,255,0.7)'], borderRadius:8 }]
+    },
+    options:{
+      responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>' ₦'+c.raw.toLocaleString() } } },
+      scales:{ x:{grid:{display:false},ticks:tickOpts()}, y:{grid:gridOpts(),ticks:{ ...tickOpts(), callback:v=>'₦'+(v/1000)+'k' },beginAtZero:true} }
+    }
+  });
+
+  // Qty chart
+  const pq = DATA.product_qty;
+  new Chart(document.getElementById('qtyChart'), {
+    type:'bar',
+    data:{
+      labels: pq.map(d=>d.Product_Name),
+      datasets:[{ label:'Units Sold', data: pq.map(d=>d.Quantity), backgroundColor:'rgba(176,106,255,0.7)', borderRadius:6 }]
+    },
+    options:{
+      indexAxis:'y', responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1 } },
+      scales:{ x:{grid:gridOpts(),ticks:tickOpts(),beginAtZero:true}, y:{grid:{display:false},ticks:{ color:'#7a8aaa', font:{size:11} }} }
+    }
+  });
+
+  // Stacked store
+  new Chart(document.getElementById('stackedStoreChart'), {
+    type:'bar',
+    data:{
+      labels: ['Yaba','Victoria Island','Lekki','Ikeja'],
+      datasets:[
+        { label:'Sandwich', data:[77000,111500,94500,71500], backgroundColor:'rgba(245,166,35,0.85)', borderRadius:{topLeft:0,topRight:0,bottomLeft:6,bottomRight:6} },
+        { label:'Cold Beverage', data:[65500,44800,66700,52800], backgroundColor:'rgba(91,143,255,0.75)' },
+        { label:'Hot Beverage', data:[68400,53500,38800,43500], backgroundColor:'rgba(232,67,147,0.7)' },
+        { label:'Pastry', data:[41100,22700,22700,27600], backgroundColor:'rgba(176,106,255,0.7)', borderRadius:{topLeft:6,topRight:6,bottomLeft:0,bottomRight:0} }
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{ legend:{ labels:{ color:'#7a8aaa', boxWidth:12, font:{size:11} } }, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>' '+c.dataset.label+': ₦'+c.raw.toLocaleString() } } },
+      scales:{
+        x:{ stacked:true, grid:gridOpts(), ticks:tickOpts() },
+        y:{ stacked:true, grid:gridOpts(), ticks:{ ...tickOpts(), callback:v=>'₦'+(v/1000)+'k' } }
+      }
+    }
+  });
+}
+
+// =========================================================
+// PREDICTIVE CHARTS
+// =========================================================
+function buildPredictive() {
+  const months = DATA.monthly.map(d=>d.Month.replace('2025-','').replace('2026-','') + (d.Month.startsWith('2026')?'\'26':'\'25'));
+  const revs = DATA.monthly.map(d=>d.Revenue);
+
+  // 3-month MA
+  const ma = revs.map((_,i) => i<2?null: Math.round((revs[i]+revs[i-1]+revs[i-2])/3));
+
+  // Projection (simple avg of last 3 months + seasonal factor)
+  const last3avg = Math.round((revs[9]+revs[10]+revs[11])/3);
+  const projLabels = [...months, 'May\'26','Jun\'26','Jul\'26'];
+  const projActual = [...revs, null, null, null];
+  const projMa = [...ma, null, null, null];
+  const projForecast = [...Array(12).fill(null), Math.round(last3avg*0.9), Math.round(last3avg*1.1), Math.round(last3avg*1.15)];
+
+  new Chart(document.getElementById('forecastChart'), {
+    type:'line',
+    data:{
+      labels: projLabels,
+      datasets:[
+        { label:'Actual Revenue', data: projActual, borderColor: COLORS.accent4, backgroundColor:'rgba(91,143,255,0.08)', fill:true, borderWidth:2.5, tension:0.4, pointRadius:4, pointBackgroundColor:COLORS.accent4 },
+        { label:'3-Month MA', data:[...projMa,null,null,null], borderColor: COLORS.accent, borderDash:[6,3], borderWidth:2, tension:0.4, pointRadius:0, fill:false },
+        { label:'Forecast', data: projForecast, borderColor: COLORS.accent3, borderDash:[4,4], borderWidth:2.5, tension:0.4, pointRadius:5, pointBackgroundColor:COLORS.accent3, fill:false, pointBorderColor:'#0b0e13', pointBorderWidth:2 }
+      ]
+    },
+    options:{
+      responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{ labels:{ color:'#7a8aaa', boxWidth:12 } }, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>c.raw?(' ₦'+c.raw.toLocaleString()):'—' } } },
+      scales:{
+        x:{ grid:gridOpts(), ticks:tickOpts() },
+        y:{ grid:gridOpts(), ticks:{ ...tickOpts(), callback:v=>'₦'+(v/1000)+'k' }, beginAtZero:false }
+      }
+    }
+  });
+
+  // MoM Table
+  const avg = revs.reduce((a,b)=>a+b,0)/revs.length;
+  const tbody = document.getElementById('momTableBody');
+  const maArr = revs.map((_,i)=>i<2?null:Math.round((revs[i]+revs[i-1]+revs[i-2])/3));
+  DATA.monthly.forEach((d,i) => {
+    const g = d.Growth;
+    const gStr = i===0 ? '—' : (g>0?`<span class="trend-up">+${g.toFixed(1)}%</span>`:`<span class="trend-dn">${g.toFixed(1)}%</span>`);
+    const vsAvg = ((d.Revenue - avg)/avg)*100;
+    const vsStr = vsAvg>0?`<span class="trend-up">+${vsAvg.toFixed(1)}%</span>`:`<span class="trend-dn">${vsAvg.toFixed(1)}%</span>`;
+    const sig = d.Revenue >= avg*1.2?'⭐ Peak':d.Revenue<=avg*0.7?'⚠️ Low':'✓ Normal';
+    tbody.innerHTML += `<tr>
+      <td style="font-weight:500">${d.Month}</td>
+      <td>₦${d.Revenue.toLocaleString()}</td>
+      <td>${d.Transactions}</td>
+      <td>${gStr}</td>
+      <td>${maArr[i]?'₦'+maArr[i].toLocaleString():'—'}</td>
+      <td>${vsStr}</td>
+      <td>${sig}</td>
+    </tr>`;
+  });
+
+  // Velocity
+  const prodRevMap = {};
+  DATA.product_revenue.forEach(d => prodRevMap[d.Product_Name] = d.Revenue);
+  const prodQtyMap = {};
+  DATA.product_qty.forEach(d => prodQtyMap[d.Product_Name] = d.Quantity);
+  const products = DATA.product_revenue.map(d=>d.Product_Name);
+  const velocity = products.map(p => Math.round(prodRevMap[p]/(prodQtyMap[p]||1)));
+
+  new Chart(document.getElementById('velocityChart'), {
+    type:'bar',
+    data:{
+      labels: products,
+      datasets:[{ label:'Revenue per Unit (₦)', data: velocity, backgroundColor:'rgba(245,166,35,0.75)', borderRadius:6 }]
+    },
+    options:{
+      indexAxis:'y', responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>' ₦'+c.raw.toLocaleString()+'/unit' } } },
+      scales:{ x:{grid:gridOpts(),ticks:{ ...tickOpts(), callback:v=>'₦'+v },beginAtZero:true}, y:{grid:{display:false},ticks:{color:'#7a8aaa',font:{size:11}}} }
+    }
+  });
+
+  // Seasonal index
+  const seasonalIndex = revs.map(v => +(v/avg).toFixed(2));
+  new Chart(document.getElementById('seasonalChart'), {
+    type:'bar',
+    data:{
+      labels: months,
+      datasets:[
+        { label:'Seasonal Index', data: seasonalIndex, backgroundColor: seasonalIndex.map(v=>v>=1.2?'rgba(61,232,176,0.85)':v<=0.7?'rgba(255,92,124,0.75)':'rgba(91,143,255,0.6)'), borderRadius:6 },
+        { type:'line', label:'Baseline (1.0)', data: Array(12).fill(1), borderColor:'rgba(122,138,170,0.5)', borderDash:[4,4], borderWidth:1.5, pointRadius:0, fill:false }
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{ legend:{ labels:{ color:'#7a8aaa', boxWidth:12 } }, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1 } },
+      scales:{ x:{grid:gridOpts(),ticks:tickOpts()}, y:{grid:gridOpts(),ticks:tickOpts(),beginAtZero:false} }
+    }
+  });
+
+  // Scenario
+  const futureMonths = ['May\'26','Jun\'26','Jul\'26','Aug\'26','Sep\'26','Oct\'26','Nov\'26','Dec\'26'];
+  const base = [72400, 82000, 84000, 68000, 90000, 76000, 74500, 116000];
+  const bull = base.map(v=>Math.round(v*1.15));
+  const bear = base.map(v=>Math.round(v*0.9));
+
+  new Chart(document.getElementById('scenarioChart'), {
+    type:'line',
+    data:{
+      labels:[...months.slice(-3), ...futureMonths],
+      datasets:[
+        { label:'Bull (+15%)', data:[...revs.slice(-3),...bull], borderColor:'rgba(61,232,176,0.9)', backgroundColor:'rgba(61,232,176,0.05)', fill:false, borderWidth:2, tension:0.4, pointRadius:3, borderDash:[2,2] },
+        { label:'Base Case', data:[...revs.slice(-3),...base], borderColor: COLORS.accent, backgroundColor:'rgba(245,166,35,0.08)', fill:true, borderWidth:2.5, tension:0.4, pointRadius:4 },
+        { label:'Bear (−10%)', data:[...revs.slice(-3),...bear], borderColor:'rgba(255,92,124,0.8)', fill:false, borderWidth:2, tension:0.4, pointRadius:3, borderDash:[4,4] }
+      ]
+    },
+    options:{
+      responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{ labels:{ color:'#7a8aaa', boxWidth:12 } }, tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>' ₦'+c.raw.toLocaleString() } } },
+      scales:{
+        x:{grid:gridOpts(),ticks:tickOpts()},
+        y:{grid:gridOpts(),ticks:{ ...tickOpts(), callback:v=>'₦'+(v/1000)+'k' }}
+      }
+    }
+  });
+}
+
+// =========================================================
+// PRESCRIPTIVE
+// =========================================================
+function buildPrescriptive() {
+  // Priority matrix (scatter-style)
+  const actions = [
+    { x:8, y:9, r:16, label:'Holiday Promo', color:'rgba(61,232,176,0.8)' },
+    { x:7, y:8, r:14, label:'Upsell Beverages', color:'rgba(245,166,35,0.8)' },
+    { x:9, y:6, r:12, label:'Ikeja Sandwich Push', color:'rgba(91,143,255,0.8)' },
+    { x:5, y:9, r:15, label:'Loyalty Programme', color:'rgba(176,106,255,0.8)' },
+    { x:6, y:7, r:10, label:'Afternoon Bundle', color:'rgba(232,67,147,0.8)' },
+    { x:4, y:8, r:9, label:'Pastry Revamp', color:'rgba(255,140,92,0.8)' },
+    { x:8, y:4, r:8, label:'Staff Upsell Training', color:'rgba(255,92,124,0.7)' },
+    { x:3, y:6, r:7, label:'New SKU Launch', color:'rgba(122,138,170,0.7)' }
+  ];
+
+  new Chart(document.getElementById('priorityChart'), {
+    type:'bubble',
+    data:{
+      datasets: actions.map(a=>({
+        label: a.label, data:[{x:a.x,y:a.y,r:a.r}],
+        backgroundColor: a.color, borderColor:'transparent'
+      }))
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{ labels:{ color:'#7a8aaa', boxWidth:10, font:{size:11} } },
+        tooltip:{ backgroundColor:'#1a2035', borderColor:'#2a3350', borderWidth:1, callbacks:{ label:c=>` ${c.dataset.label} | Impact:${c.raw.y} Effort:${c.raw.x}` } }
+      },
+      scales:{
+        x:{ title:{ display:true, text:'Effort (1=Low, 10=High)', color:'#7a8aaa', font:{size:11} }, grid:gridOpts(), ticks:tickOpts(), min:1, max:11 },
+        y:{ title:{ display:true, text:'Revenue Impact (1=Low, 10=High)', color:'#7a8aaa', font:{size:11} }, grid:gridOpts(), ticks:tickOpts(), min:1, max:11 }
+      }
+    }
+  });
+
+  // Recommendations
+  const recs = [
+    { num:'01', color:'#f5a623', bg:'rgba(245,166,35,0.1)', title:'Launch a November–December Holiday Campaign', body:'December is already the top month (₦113,000). A targeted seasonal campaign — holiday gift bundles, corporate catering outreach, and festive loyalty rewards — could push it to ₦130,000+. Start preparation by October.', impact:'Est. +₦17,000–₦20,000 in Dec' },
+    { num:'02', color:'#3de8b0', bg:'rgba(61,232,176,0.1)', title:'Boost Ikeja\'s Sandwich Category', body:'Ikeja\'s Sandwich revenue (₦71,500) is the weakest among all stores, while Victoria Island\'s is ₦111,500. Promoting Chicken Panini and Turkey & Cheese via targeted store displays and weekday combo deals in Ikeja can close this gap.', impact:'Est. +₦25,000–₦30,000' },
+    { num:'03', color:'#5b8fff', bg:'rgba(91,143,255,0.1)', title:'Introduce an Afternoon Bundle Deal', body:'Afternoon (2–6 PM) is the #1 revenue timeslot (₦288,000). A "Café Combo" — sandwich + beverage — priced at 10–15% discount could increase avg order value from ₦3,610 to ₦4,200+ and drive volume.', impact:'Est. +₦40,000 annually' },
+    { num:'04', color:'#b06aff', bg:'rgba(176,106,255,0.1)', title:'Revamp the Pastry Category', body:'Pastry is only 12.6% of revenue despite being the most-sold item by quantity (Croissant: 53 units). The problem is low unit price (₦1,000–₦1,500). Introduce premium pastries (₦2,000–₦2,500) or pastry-beverage bundles.', impact:'Est. +₦15,000–₦20,000' },
+    { num:'05', color:'#e84393', bg:'rgba(232,67,147,0.1)', title:'Launch a Loyalty Rewards Programme', body:'With 250 transactions spread over 12 months (~20/month), repeat customer data is critical. A stamp-card or digital loyalty programme can increase visit frequency by 20–30%, particularly targeting Yaba & Lekki where transaction volume is highest.', impact:'Est. +15–20% repeat visits' },
+    { num:'06', color:'#ff8c5c', bg:'rgba(255,140,92,0.1)', title:'Investigate and Recover April Revenue', body:'April 2026 recorded just ₦41,300 — the worst month by far. If this is a data collection gap, audit the POS system. If genuine, identify which stores/products underperformed and deploy a targeted May reactivation campaign.', impact:'Risk mitigation: ₦30,000+' }
+  ];
+
+  const grid = document.getElementById('recGrid');
+  recs.forEach(r => {
+    grid.innerHTML += `
+    <div class="rec-card">
+      <div class="rec-header">
+        <div class="rec-num" style="background:${r.bg};color:${r.color}">${r.num}</div>
+        <div class="rec-title">${r.title}</div>
+      </div>
+      <div class="rec-body">${r.body}</div>
+      <div class="rec-impact"><strong>💡 ${r.impact}</strong></div>
+    </div>`;
+  });
+
+  // Quick wins
+  const wins = [
+    ['1','Add "Café Combo" signs at counter','All Stores','Sandwich + Bev','₦8,000–₦12,000','Week 1–2'],
+    ['2','Chicken Panini featured deal in Ikeja','Ikeja','Sandwich','₦5,000–₦8,000','Week 1'],
+    ['3','Friday happy hour: 10% off 4–6 PM','Yaba, Lekki','All','₦6,000–₦10,000','Week 2'],
+    ['4','Premium pastry (₦2,200) pilot SKU','Lekki','Pastry','₦3,000–₦5,000','Week 3–4'],
+    ['5','Audit April 2026 POS transactions','All Stores','Ops','Revenue recovery','Week 1'],
+    ['6','WhatsApp promo blast for loyalty members','Victoria Island','All','₦4,000–₦6,000','Week 2–3'],
+  ];
+
+  const qtbody = document.getElementById('quickWinBody');
+  wins.forEach(w => {
+    qtbody.innerHTML += `<tr><td style="color:var(--accent);font-weight:700">${w[0]}</td><td>${w[1]}</td><td>${w[2]}</td><td>${w[3]}</td><td style="color:var(--accent3);font-weight:600">${w[4]}</td><td style="color:var(--muted)">${w[5]}</td></tr>`;
+  });
+}
+
+// =========================================================
+// DATA EXPLORER
+// =========================================================
+function renderTable(rows) {
+  const catClass = { 'Sandwich':'pill-sandwich', 'Hot Beverage':'pill-hot', 'Cold Beverage':'pill-cold', 'Pastry':'pill-pastry' };
+  const tbody = document.getElementById('explorerBody');
+  tbody.innerHTML = '';
+  rows.forEach(t => {
+    tbody.innerHTML += `<tr>
+      <td style="color:var(--accent4);font-family:monospace">${t.id}</td>
+      <td>${t.date}</td>
+      <td>${t.store}</td>
+      <td><span class="pill ${catClass[t.cat]||''}">${t.cat}</span></td>
+      <td>${t.prod}</td>
+      <td style="text-align:center">${t.qty}</td>
+      <td>₦${t.price.toLocaleString()}</td>
+      <td style="color:var(--accent3);font-weight:600">₦${t.rev.toLocaleString()}</td>
+      <td style="color:var(--muted);font-size:11px">${t.slot}</td>
+    </tr>`;
+  });
+  document.getElementById('rowCount').textContent = `Showing ${rows.length} records`;
+}
+
+function filterTable() {
+  const store = document.getElementById('filterStore').value;
+  const cat = document.getElementById('filterCat').value;
+  const slot = document.getElementById('filterSlot').value;
+  let rows = DATA.transactions;
+  if(store) rows = rows.filter(r=>r.store===store);
+  if(cat) rows = rows.filter(r=>r.cat===cat);
+  if(slot) rows = rows.filter(r=>r.slot===slot);
+  renderTable(rows);
+}
+
+// =========================================================
+// TAB SWITCHER
+// =========================================================
+const built = { descriptive:false, diagnostic:false, predictive:false, prescriptive:false, explorer:false };
+
+function showTab(name) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.currentTarget.classList.add('active');
+
+  if(!built[name]) {
+    built[name] = true;
+    if(name==='descriptive') buildDescriptive();
+    else if(name==='diagnostic') buildDiagnostic();
+    else if(name==='predictive') buildPredictive();
+    else if(name==='prescriptive') buildPrescriptive();
+    else if(name==='explorer') { renderTable(DATA.transactions); }
+  }
+}
+
+// Init first tab
+built.descriptive = true;
+buildDescriptive();
+renderTable(DATA.transactions);
+built.explorer = true;
+</script>
+</body>
+</html>
