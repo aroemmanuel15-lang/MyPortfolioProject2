@@ -1,0 +1,3 @@
+For Query 1 (Time Crunch): "While grouped dashboard visuals suggested an afternoon peak, my granular SQL analysis revealed that 11:00 AM is actually our single highest-grossing and busiest hour. High-level charts can obscure hourly realities."
+For Query 2 (Ikeja): Look at the top 3 products. Translation: "While Ikeja is our lowest-performing branch overall, SQL analysis proves there is strong, consistent local demand for Chicken Panini ."
+For Query 3 (AOV): Look at the average order value for sandwiches. Translation: "Sandwiches don't just sell the most units; they carry the highest Average Order Value at ₦5539.06, making them our most critical category for profitability."
